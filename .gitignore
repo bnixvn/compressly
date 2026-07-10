@@ -19,6 +19,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# runtime logs & local data
+dev.log
+server.log
+server.err
+
 # env files (keep .env.example tracked, ignore real secrets)
 .env
 .env.local
