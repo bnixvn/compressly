@@ -1,0 +1,23 @@
+{
+  "bannerUrl": "/banner/banner.png",
+  "defaultTheme": "dark",
+  "defaultLang": "en",
+  "logoUrl": "/logo/logo.png",
+  "faviconUrl": "/favicon/favicon.png",
+  "siteName": {
+    "en": "BNIX COMPRESS IMAGES",
+    "vi": "CÔNG CỤ NÉN ẢNH MIỄN PHÍ"
+  },
+  "seoTitle": {
+    "en": "BNIX COMPRESS IMAGES",
+    "vi": "CÔNG CỤ NÉN ẢNH MIỄN PHÍ"
+  },
+  "seoDescription": {
+    "en": "",
+    "vi": ""
+  },
+  "footerContent": {
+    "en": "BNIX FREE COMPRESS",
+    "vi": "Nén ảnh miễn phí - BNIX"
+  }
+}

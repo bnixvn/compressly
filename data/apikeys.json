@@ -1,0 +1,11 @@
+{
+  "keys": {
+    "sk_586f20c5079fd51f5c217f0a": {
+      "label": "test",
+      "createdAt": "2026-07-10T18:40:03.138Z",
+      "quota": 3,
+      "used": 3,
+      "active": true
+    }
+  }
+}
