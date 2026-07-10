@@ -24,6 +24,12 @@ npm run build && npm start
 
 > `sharp` là native module; Next được cấu hình `serverExternalPackages` để không bundle nó.
 
+### 🚀 Deploy lên VPS (Ubuntu / Debian)
+
+**[📖 Hướng dẫn cài đặt chi tiết trên VPS →](README-VPS.md)**
+
+Hướng dẫn từng bước: cài Node.js 24, clone source, build, chạy với PM2, cấu hình Nginx reverse proxy, cài SSL (Let's Encrypt), quản lý Admin panel, và khắc phục sự cố. Áp dụng cho Ubuntu 24.04, Debian 12, Debian 13.
+
 ## Cấu hình (.env)
 
 | Biến | Mặc định | Ý nghĩa |
