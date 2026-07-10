@@ -386,186 +386,306 @@ pm2 save
 
 ---
 
-## 7. Nginx reverse proxy
+## 7. Cấu hình Nginx reverse proxy
 
-Nginx phía trước để: phục vụ trên port 80/443, nén gzip, tăng giới hạn upload, và dễ dàng gắn SSL.
+> **Tại sao cần Nginx?** Next.js chạy trên port 3000, nhưng người dùng truy cập qua port 80 (HTTP) hoặc 443 (HTTPS). Nginx đứng giữa làm "cổng vào": chuyển request từ port 80/443 sang port 3000, đồng thời nén gzip, tăng giới hạn upload, và hỗ trợ SSL.
 
-### Cài Nginx
+### Bước 1 — Cài Nginx
 
 ```bash
 sudo apt -y install nginx
 ```
 
-### Tạo virtual host
+Kiểm tra Nginx đã chạy chưa:
+
+```bash
+sudo systemctl status nginx
+```
+
+Nếu thấy `active (running)` là OK. Truy cập `http://<IP_VPS>` sẽ thấy trang mặc định của Nginx.
+
+### Bước 2 — Tạo file cấu hình virtual host
 
 ```bash
 sudo nano /etc/nginx/sites-available/compressly
 ```
 
-Nội dung:
+Paste toàn bộ nội dung sau vào:
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com www.your-domain.com;
 
-    # Giới hạn upload — khớp với WEB_MAX_FILE_SIZE (tối đa 20MB cho batch)
+    # Giới hạn upload — đặt lớn hơn MAX_FILE_SIZE trong .env
     client_max_body_size 20M;
 
     location / {
+        # Chuyển mọi request sang Next.js đang chạy trên port 3000
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
 
-        # Hỗ trợ WebSocket (Next.js hot reload trong dev)
+        # Hỗ trợ WebSocket (cần cho Next.js hot reload ở chế độ dev)
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
 
-        # Truyền thông tin client gốc
+        # Truyền thông tin client thật (IP, domain, giao thức) cho Next.js
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Timeout cho upload file lớn
+        # Timeout cho upload/download file lớn (120 giây)
         proxy_read_timeout 120s;
         proxy_send_timeout 120s;
     }
 }
 ```
 
-> ⚠️ Thay `your-domain.com` bằng domain thật của bạn.
+> ⚠️ **Thay `your-domain.com`** bằng domain thật của bạn. Nếu chưa có domain, dùng `_` (underscore) để match mọi domain/IP: `server_name _;`
 
-### Kích hoạt
+Lưu file: nhấn `Ctrl + O`, `Enter`, rồi `Ctrl + X` để thoát nano.
+
+### Bước 3 — Kích hoạt virtual host
 
 ```bash
-# Tạo symlink
+# Tạo symlink vào sites-enabled (Nginx chỉ đọc file trong đây)
 sudo ln -s /etc/nginx/sites-available/compressly /etc/nginx/sites-enabled/
 
-# Xóa default site (tùy chọn)
+# Xóa trang mặc định của Nginx (tùy chọn, tránh xung đột)
 sudo rm -f /etc/nginx/sites-enabled/default
+```
 
-# Test cấu hình
+### Bước 4 — Kiểm tra & reload Nginx
+
+```bash
+# Test cấu hình có lỗi cú pháp không
 sudo nginx -t
+```
 
-# Reload Nginx
+Kết quả mong đợi:
+```
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+
+```bash
+# Reload Nginx để áp dụng cấu hình mới
 sudo systemctl reload nginx
 ```
 
-Giờ truy cập `http://your-domain.com` sẽ thấy ứng dụng.
+### Bước 5 — Kiểm tra
+
+Truy cập `http://your-domain.com` (hoặc `http://<IP_VPS>` nếu dùng `_`). Bạn sẽ thấy giao diện BNIX COMPRESS IMAGES.
+
+> **Firewall:** Nếu dùng UFW, cần cho phép port 80: `sudo ufw allow 80/tcp`
 
 ---
 
 ## 8. Cài đặt HTTPS (Let's Encrypt)
 
-### Cài Certbot
+> **Tại sao cần HTTPS?** Bảo mật dữ liệu khi upload file ảnh. Google ưu tiên website có HTTPS. Let's Encrypt cấp chứng chỉ SSL **miễn phí**, tự động gia hạn.
+
+### Yêu cầu
+
+- Domain đã trỏ A record về IP VPS (kiểm tra: `ping your-domain.com` → ra IP VPS)
+- Nginx đã cấu hình ở bước 7
+
+### Bước 1 — Cài Certbot
 
 ```bash
 sudo apt -y install certbot python3-certbot-nginx
 ```
 
-### Cấp chứng chỉ SSL
+`python3-certbot-nginx` là plugin giúp Certbot tự sửa file cấu hình Nginx.
+
+### Bước 2 — Cấp chứng chỉ SSL
 
 ```bash
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 ```
 
-Làm theo hướng dẫn trên màn hình (nhập email, đồng ý điều khoản).
+Quá trình này sẽ hỏi:
+1. **Email** — để thông báo khi chứng chỉ sắp hết hạn
+2. **Đồng ý điều khoản** — nhập `Y`
+3. **Redirect HTTP → HTTPS** — chọn **2** (Redirect) để tự chuyển hướng
 
-Certbot sẽ:
-- Tự động cấu hình HTTPS trong Nginx
-- Thiết lập redirect HTTP → HTTPS
-- Tạo cron job tự gia hạn chứng chỉ
+Certbot sẽ tự động: tải chứng chỉ SSL, sửa file Nginx, thiết lập redirect HTTP → HTTPS, tạo cron job tự gia hạn (mỗi 60 ngày).
 
-### Kiểm tra gia hạn tự động
+### Bước 3 — Kiểm tra
+
+Truy cập `https://your-domain.com` — thấy biểu tượng 🔒 là thành công.
+
+### Bước 4 — Kiểm tra gia hạn tự động
 
 ```bash
 sudo certbot renew --dry-run
 ```
 
-Sau khi cài xong, truy cập `https://your-domain.com`.
+Nếu không có lỗi là OK.
+
+> **Firewall:** Cần cho phép port 443: `sudo ufw allow 443/tcp`
+>
+> **Không có domain?** Không thể dùng Let's Encrypt với IP thuần. Nếu chỉ dùng IP, bỏ qua bước SSL.
 
 ---
 
 ## 9. Sử dụng trang Admin
 
-Truy cập `https://your-domain.com/admin`.
+Trang Admin là nơi quản lý toàn bộ API key, giao diện, và cấu hình website.
+
+### Truy cập
+
+Mở trình duyệt, vào: `https://your-domain.com/admin`
 
 ### Đăng nhập
 
-Nhập mật khẩu đã đặt trong `ADMIN_PASSWORD` (hoặc đã thay đổi qua trang admin).
+Nhập mật khẩu đã đặt trong biến `ADMIN_PASSWORD` (file `.env`). Nếu đã thay đổi mật khẩu qua trang admin trước đó, dùng mật khẩu mới.
 
-### Quản lý API Key
+### 9.1. Quản lý API Key
 
-- **Tạo key mới:** Nhập tên (label) và quota → nhấn tạo. Key dạng `sk_<24 ký tự hex>`.
-- **Xem danh sách:** Hiển thị tất cả key, trạng thái, số lần đã dùng / quota.
-- **Vô hiệu hóa / kích hoạt:** Bật/tắt key mà không xóa.
-- **Xóa key:** Xóa vĩnh viễn khỏi hệ thống.
+API Key là "chìa khóa" để client (WordPress plugin, curl, ứng dụng khác) gọi REST API.
 
-### Quản lý giao diện
+| Thao tác | Hướng dẫn |
+|----------|----------|
+| **Tạo key mới** | Nhập tên (label, ví dụ "WordPress site") và quota (số request tối đa) → nhấn nút tạo. Key dạng `sk_<24 ký tự hex>`. |
+| **Xem danh sách** | Bảng hiển thị: tên, key, trạng thái (active/inactive), số lần đã dùng / quota. |
+| **Vô hiệu hóa** | Nhấn toggle để tắt key tạm thời. Client gọi API sẽ bị từ chối (401). |
+| **Kích hoạt lại** | Nhấn toggle lần nữa để bật lại. |
+| **Xóa key** | Xóa vĩnh viễn, không thể khôi lại. |
 
-- Upload logo, favicon, banner
-- Đổi tên site, tiêu đề SEO, mô tả SEO, footer (hỗ trợ tiếng Việt & tiếng Anh)
-- Đổi mật khẩu admin
-- Chuyển đổi theme (sáng/tắt) và ngôn ngữ mặc định
+### 9.2. Quản lý giao diện & nội dung
+
+Tất cả thay đổi có hiệu lực ngay, không cần restart:
+
+- **Logo:** Upload ảnh PNG/JPG → hiển thị trên header
+- **Favicon:** Upload ảnh PNG (nên 32×32 hoặc 64×64 px) → icon trên tab trình duyệt
+- **Banner:** Upload ảnh banner → hiển thị trên trang chủ
+- **Tên site:** Đổi tên ở header, title, metadata (hỗ trợ tiếng Việt & tiếng Anh)
+- **SEO Title:** Tiêu đề trang hiển thị trên Google
+- **SEO Description:** Mô tả ngắn hiển thị dưới tiêu đề trên Google
+- **Footer:** Nội dung chân trang (2 ngôn ngữ)
+
+### 9.3. Đổi mật khẩu admin
+
+1. Nhập mật khẩu hiện tại
+2. Nhập mật khẩu mới + xác nhận
+3. Nhấn lưu
+
+> Mật khẩu mới được lưu vào `data/settings.json` và **ghi đè** giá trị `ADMIN_PASSWORD` trong `.env`.
 
 ---
 
 ## 10. Tùy chỉnh giao diện & SEO
 
-Tất cả có thể thay đổi qua trang `/admin` mà không cần sửa code:
+Bạn có 2 cách tùy chỉnh: qua **trang Admin** (khuyên dùng) hoặc **sửa file trực tiếp**.
 
-| Trường | File lưu | Mô tả |
-|--------|----------|-------|
-| Logo | `public/logo/logo.png` | Logo hiển thị trên header |
-| Favicon | `public/favicon/favicon.png` | Icon trên tab trình duyệt |
-| Banner | `public/banner/banner.png` | Banner quảng cáo trên trang chủ |
-| Tên site | `data/settings.json` → `siteName` | Hiển thị ở header, title, metadata |
-| SEO Title | `data/settings.json` → `seoTitle` | Thẻ `<title>` và Open Graph |
-| SEO Description | `data/settings.json` → `seoDescription` | Meta description |
-| Footer | `data/settings.json` → `footerContent` | Chân trang |
-| Theme mặc định | `data/settings.json` → `defaultTheme` | `light` hoặc `dark` |
-| Ngôn ngữ mặc định | `data/settings.json` → `defaultLang` | `en` hoặc `vi` |
+### Cách 1: Qua trang Admin (khuyên dùng)
+
+Vào `https://your-domain.com/admin` → đăng nhập → chỉnh sửa trực tiếp. Thay đổi có hiệu lực ngay.
+
+### Cách 2: Sửa file trực tiếp
+
+Nếu không truy cập được trang admin:
+
+```bash
+nano /var/www/compressly/data/settings.json
+```
+
+Sau đó restart: `pm2 restart compressly`
+
+### Bảng tham chiếu
+
+| Trường | File lưu | Mặc định | Mô tả |
+|--------|----------|----------|-------|
+| Logo | `public/logo/logo.png` | Logo Compressly | Header trang web |
+| Favicon | `public/favicon/favicon.png` | Icon mặc định | Tab trình duyệt (32×32 px) |
+| Banner | `public/banner/banner.png` | *(trống)* | Banner trang chủ |
+| Tên site | `data/settings.json` → `siteName` | `Compressly` | Header, title, metadata |
+| SEO Title | `data/settings.json` → `seoTitle` | *(từ siteName)* | Thẻ `<title>`, Open Graph |
+| SEO Description | `data/settings.json` → `seoDescription` | *(trống)* | Meta description cho Google |
+| Footer | `data/settings.json` → `footerContent` | *(trống)* | Chân trang |
+| Theme | `data/settings.json` → `defaultTheme` | `dark` | `light` hoặc `dark` |
+| Ngôn ngữ | `data/settings.json` → `defaultLang` | `en` | `en` hoặc `vi` |
 
 ---
 
 ## 11. Cập nhật ứng dụng
 
+### Bước 1 — Backup (quan trọng!)
+
+```bash
+cp -r /var/www/compressly/data/ /tmp/compressly-data-backup/
+cp /var/www/compressly/.env /tmp/compressly-env-backup
+```
+
+### Bước 2 — Pull code mới
+
 ```bash
 cd /var/www/compressly
-
-# Lấy code mới
 git pull origin main
+```
 
-# Cài dependencies mới (nếu có thay đổi package.json)
+### Bước 3 — Cài dependencies mới
+
+```bash
 npm install
+```
 
-# Build lại
+Chỉ cần chạy nếu `package.json` có thay đổi.
+
+### Bước 4 — Build lại
+
+```bash
 npm run build
+```
 
-# Khởi động lại
+### Bước 5 — Khởi động lại
+
+```bash
 pm2 restart compressly
 ```
 
-> **Backup trước khi cập nhật:**
+Kiểm tra: `pm2 logs compressly` — nếu không có lỗi là OK.
+
+> **Nếu cập nhật bị lỗi?** Khôi phục backup:
 > ```bash
-> cp -r data/ /tmp/compressly-data-backup/
-> cp .env /tmp/compressly-env-backup
+> cp -r /tmp/compressly-data-backup/ /var/www/compressly/data/
+> cp /tmp/compressly-env-backup /var/www/compressly/.env
+> git checkout HEAD~1
+> npm run build
+> pm2 restart compressly
 > ```
 
 ---
 
 ## 12. Khắc phục sự cố
 
-| Vấn đề | Nguyên nhân & Cách xử lý |
-|--------|--------------------------|
-| `EADDRINUSE :::3000` | Port 3000 đã bị chiếm. Tìm: `sudo lsof -i :3000` → kill process đó, hoặc đổi port qua biến `PORT`. |
-| `sharp` lỗi khi cài | Thiếu thư viện hệ thống. Cài: `sudo apt -y install build-essential libvips-dev` rồi chạy lại `npm install`. |
-| Trang `/admin` báo `ADMIN_NOT_CONFIGURED` | Chưa đặt `ADMIN_PASSWORD` trong `.env`. Thêm và restart: `pm2 restart compressly`. |
-| Upload bị lỗi 413 (file too large) | Kiểm tra: (1) `WEB_MAX_FILE_SIZE` trong `.env`, (2) `client_max_body_size` trong Nginx. |
-| Build fail do hết RAM | Thêm swap 2 GB: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile` |
-| Nginx lỗi 502 Bad Gateway | Ứng dụng chưa chạy. Kiểm tra: `pm2 status` → start nếu cần: `pm2 start compressly`. |
-| Không truy cập được từ ngoài | Kiểm tra firewall: `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp` |
-| Certbot lỗi "DNS problem" | Domain chưa trỏ đúng IP VPS. Kiểm tra DNS A record trỏ tới IP của VPS. |
+### Lỗi khi cài đặt / build
+
+| Vấn đề | Nguyên nhân | Cách xử lý |
+|--------|-------------|------------|
+| `sharp` lỗi khi `npm install` | Thiếu thư viện hệ thống | `sudo apt -y install build-essential libvips-dev` rồi `npm rebuild sharp` |
+| `npm run build` fail do hết RAM | VPS RAM thấp (< 1 GB) | Thêm swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile` |
+| `node: command not found` | Chưa cài Node hoặc chưa load PATH | Đóng terminal mở lại, hoặc `source ~/.bashrc` (nếu dùng nvm) |
+
+### Lỗi khi chạy ứng dụng
+
+| Vấn đề | Nguyên nhân | Cách xử lý |
+|--------|-------------|------------|
+| `EADDRINUSE :::3000` | Port 3000 bị chiếm | `sudo lsof -i :3000` → `sudo kill <PID>`, hoặc đổi port: `PORT=8080` |
+| `/admin` báo `ADMIN_NOT_CONFIGURED` | Chưa đặt `ADMIN_PASSWORD` | Thêm vào `.env` → `pm2 restart compressly` |
+| Upload lỗi 413 (file too large) | File vượt giới hạn | Kiểm tra cả 2: `WEB_MAX_FILE_SIZE` trong `.env` + `client_max_body_size` trong Nginx |
+| `pm2 status` hiện `errored` | App crash | `pm2 logs compressly --lines 50` để xem lỗi chi tiết |
+
+### Lỗi Nginx / mạng
+
+| Vấn đề | Nguyên nhân | Cách xử lý |
+|--------|-------------|------------|
+| Nginx 502 Bad Gateway | Next.js chưa chạy | `pm2 status` → nếu chưa online: `pm2 start compressly` |
+| Không truy cập từ ngoài | Firewall chặn | `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp` |
+| Certbot "DNS problem" | Domain chưa trỏ IP | Kiểm tra: `dig your-domain.com` → phải ra IP VPS |
+| Certbot "connection refused" | Nginx chưa chạy / port 80 bị chặn | `sudo systemctl status nginx` + `sudo ufw allow 80/tcp` |
 
 ---
 
@@ -623,28 +743,72 @@ sudo ufw enable
 
 ## REST API (tài liệu nhanh)
 
-Sau khi deploy, API sẵn dùng tại `https://your-domain.com/api/v1/`:
+Sau khi deploy, REST API sẵn dùng tại `https://your-domain.com/api/v1/`.
+
+### Xác thực
+
+Header bắt buộc: `Authorization: Bearer <api_key>`. API key tạo qua trang `/admin`.
+
+### Endpoints
 
 | Endpoint | Method | Mô tả |
 |----------|--------|-------|
-| `/api/v1` | GET | Thông tin dịch vụ |
-| `/api/v1/images/compress` | POST | Nén ảnh (giữ định dạng gốc) |
-| `/api/v1/images/convert/webp` | POST | Chuyển sang WebP |
-| `/api/v1/images/optimize` | POST | Tối ưu (mode: `compress` \| `webp`) |
+| `/api/v1` | GET | Thông tin dịch vụ (version, trạng thái) |
+| `/api/v1/images/compress` | POST | Nén ảnh, giữ định dạng gốc |
+| `/api/v1/images/convert/webp` | POST | Chuyển sang WebP (giữ alpha nếu PNG trong suốt) |
+| `/api/v1/images/optimize` | POST | Tối ưu: `mode=compress` hoặc `mode=webp`, optional `quality` |
 
-Header bắt buộc: `Authorization: Bearer <api_key>`
+### Request
+
+- Content-Type: `multipart/form-data`
+- Field `file`: ảnh JPEG/PNG (bắt buộc)
+- Field `quality`: 1–100 (tùy chọn, mặc định theo `.env`)
+
+### Response headers
+
+| Header | Mô tả |
+|--------|-------|
+| `X-Original-Size` | Kích thước file gốc (bytes) |
+| `X-Optimized-Size` | Kích thước file kết quả (bytes) |
+| `X-Saved-Bytes` | Số bytes tiết kiệm |
+| `X-Saved-Percent` | Phần trăm tiết kiệm |
+
+### Mã lỗi
+
+| HTTP | Code | Nguyên nhân |
+|------|------|------------|
+| 400 | `MISSING_FILE` | Không gửi field `file` |
+| 401 | `INVALID_API_KEY` | Key sai hoặc đã bị vô hiệu hóa |
+| 413 | `FILE_TOO_LARGE` | File vượt quá `MAX_FILE_SIZE` |
+| 415 | `UNSUPPORTED_TYPE` | Không phải JPEG/PNG |
+| 429 | `QUOTA_EXCEEDED` | Key hết quota |
+| 400 | `INVALID_QUALITY` | `quality` ngoài khoảng 1–100 |
+
+### Ví dụ curl
 
 ```bash
-# Ví dụ: nén ảnh
+# Nén JPEG
 curl -X POST https://your-domain.com/api/v1/images/compress \
   -H "Authorization: Bearer sk_your_key_here" \
-  -F "file=@photo.jpg" -F "quality=75" -o photo-optimized.jpg
+  -F "file=@photo.jpg" -F "quality=75" \
+  -o photo-optimized.jpg
 
-# Ví dụ: chuyển WebP
+# Chuyển PNG sang WebP
 curl -X POST https://your-domain.com/api/v1/images/convert/webp \
   -H "Authorization: Bearer sk_your_key_here" \
-  -F "file=@photo.png" -o photo.webp
+  -F "file=@photo.png" \
+  -o photo.webp
+
+# Tối ưu (chọn mode)
+curl -X POST https://your-domain.com/api/v1/images/optimize \
+  -H "Authorization: Bearer sk_your_key_here" \
+  -F "file=@photo.jpg" -F "mode=webp" -F "quality=80" \
+  -o photo.webp
 ```
+
+### WordPress plugin
+
+Xem `README.md` trong repo để có đoạn code PHP mẫu gửi ảnh qua API từ WordPress.
 
 ---
 
