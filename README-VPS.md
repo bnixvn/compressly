@@ -44,64 +44,180 @@ Không cần database — dữ liệu API key và cấu hình lưu dưới dạn
 
 ## 2. Cài đặt Node.js v24
 
-### Ubuntu 24.04
+Ứng dụng yêu cầu **Node.js v24** (bắt buộc — Next.js 15 và Sharp cần các tính năng mới).  
+Có 2 cách cài: **NodeSource** (khuyên dùng cho VPS) hoặc **nvm** (nếu cần nhiều phiên bản).
+
+### Cách A: NodeSource (khuyên dùng cho server)
+
+> NodeSource cài Node.js system-wide, mọi user đều dùng được. Phù hợp cho VPS production.
+
+**Bước 1 — Cập nhật hệ thống & cài thư viện cần thiết:**
 
 ```bash
-# Cập nhật hệ thống & cài công cụ cơ bản
 sudo apt update && sudo apt -y upgrade
-sudo apt -y install curl git build-essential ca-certificates libvips-dev
+```
 
-# Thêm repo NodeSource cho Node 24
+```bash
+sudo apt -y install curl git build-essential ca-certificates libvips-dev
+```
+
+Giải thích từng gói:
+- `curl` — tải script cài NodeSource
+- `git` — clone mã nguồn từ GitHub
+- `build-essential` — trình biên dịch C/C++ (gcc, g++, make) để build native module
+- `ca-certificates` — chứng chỉ SSL để tải gói qua HTTPS
+- `libvips-dev` — thư viện xử lý ảnh mà `sharp` phụ thuộc vào
+
+**Bước 2 — Thêm repo NodeSource cho Node 24:**
+
+```bash
 curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+```
+
+Lệnh này tải script từ NodeSource, script sẽ tự động thêm kho package Node.js 24 vào hệ thống.  
+`sudo -E bash -` chạy script với quyền root, giữ nguyên biến môi trường.
+
+**Bước 3 — Cài đặt Node.js và npm:**
+
+```bash
 sudo apt -y install nodejs
+```
+
+Lệnh này cài cả `node` (runtime) lẫn `npm` (trình quản lý package).
+
+**Bước 4 — Kiểm tra cài đặt thành công:**
+
+```bash
+node -v
+```
+
+Kết quả mong đợi: `v24.x.x` (ví dụ `v24.4.1`).
+
+```bash
+npm -v
+```
+
+Kết quả mong đợi: `11.x.x` (ví dụ `11.4.2`).
+
+> ⚠️ Nếu `node -v` báo `command not found`, hãy thử đóng terminal mở lại, hoặc chạy `source ~/.bashrc`.
+
+### Cách B: nvm (nếu cần quản lý nhiều phiên bản Node)
+
+> nvm cài Node theo từng user, không ảnh hưởng hệ thống. Phù hợp nếu bạn dev nhiều project.
+
+```bash
+# Tải & cài nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+# Load nvm vào terminal hiện tại
+source ~/.bashrc
+
+# Cài Node.js 24
+nvm install 24
+
+# Đặt Node 24 là phiên bản mặc định
+nvm use 24
+nvm alias default 24
 
 # Kiểm tra
 node -v   # v24.x.x
 npm -v    # 11.x.x
 ```
 
-### Debian 12 / Debian 13
-
-```bash
-sudo apt update && sudo apt -y upgrade
-sudo apt -y install curl git build-essential ca-certificates libvips-dev
-
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt -y install nodejs
-
-node -v
-npm -v
-```
-
-> **Thay thế:** Nếu muốn quản lý nhiều phiên bản Node, dùng [nvm](https://github.com/nvm-sh/nvm):
-> ```bash
-> curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
-> source ~/.bashrc
-> nvm install 24
-> nvm use 24
-> ```
+> **Lưu ý khi dùng nvm với PM2:** PM2 cần được cài trong cùng context nvm.  
+> Chạy `nvm use 24` trước khi `npm install -g pm2`.
 
 ---
 
-## 3. Clone & build dự án
+## 3. Tải mã nguồn & build
+
+### 3.1. Tạo thư mục chứa dự án
 
 ```bash
-# Clone repo
+sudo mkdir -p /var/www
 cd /var/www
+```
+
+> `/var/www` là thư mục chuẩn trên Linux để chứa các website. Bạn có thể đổi sang đường dẫn khác nếu muốn.
+
+### 3.2. Clone repo từ GitHub
+
+```bash
 sudo git clone https://github.com/bnixvn/compressly.git compressly
+```
+
+Lệnh này tải toàn bộ mã nguồn từ GitHub về thư mục `/var/www/compressly`.
+
+> Nếu server không có kết nối internet, bạn có thể tải file `.zip` từ GitHub trên máy local rồi upload lên VPS qua `scp` hoặc SFTP.
+
+### 3.3. Cấp quyền cho user hiện tại
+
+```bash
 sudo chown -R $USER:$USER compressly
+```
+
+Lệnh này chuyển quyền sở hữu thư mục từ `root` sang user đang đăng nhập, để bạn có thể chạy `npm install` mà không cần `sudo`.
+
+### 3.4. Vào thư mục dự án
+
+```bash
 cd compressly
+```
 
-# Cài dependencies
+Kiểm tra đã đúng thư mục chưa:
+
+```bash
+ls -la
+```
+
+Bạn sẽ thấy các file: `package.json`, `README.md`, `app/`, `lib/`, `public/`, v.v.
+
+### 3.5. Cài đặt dependencies
+
+```bash
 npm install
+```
 
-# Build production
+Lệnh này đọc `package.json` và tải tất cả thư viện cần thiết vào thư mục `node_modules/`.
+
+Quá trình này mất **1–3 phút** tùy tốc độ mạng và CPU VPS.  
+`sharp` sẽ tự biên dịch native code trong bước này — nếu thiếu `libvips-dev` sẽ báo lỗi.
+
+> **Lỗi `sharp`?** Chạy lại:
+> ```bash
+> sudo apt -y install libvips-dev
+> npm rebuild sharp
+> ```
+
+### 3.6. Build production
+
+```bash
 npm run build
 ```
 
-> **Lỗi thiếu libvips?** Chạy lại: `sudo apt -y install libvips-dev && npm rebuild sharp`
+Lệnh này biên dịch Next.js sang production build (tối ưu, nhỏ gọn).  
+Quá trình mất **1–2 phút**. Kết quả tạo thư mục `.next/` chứa bản build sẵn chạy.
 
-Sau khi build thành công, thư mục `.next/` sẽ chứa bản build production.
+Khi thấy dòng `Route (app)` và `○ /` là build thành công.
+
+### 3.7. Kiểm tra kết quả
+
+Sau khi build, cấu trúc thư mục sẽ như sau:
+
+```
+compressly/
+├── .next/           ← build production (tự tạo sau npm run build)
+├── app/             ← mã nguồn giao diện & API
+├── data/            ← dữ liệu runtime (apikeys.json, settings.json)
+├── lib/             ← code backend
+├── node_modules/    ← dependencies (tự tạo sau npm install)
+├── public/          ← ảnh tĩnh (logo, favicon, banner)
+├── .env.example     ← file mẫu biến môi trường
+├── package.json     ← thông tin dự án
+└── README-VPS.md    ← tài liệu này
+```
+
+✅ Tới đây bạn đã có mã nguồn sẵn sàng. Tiếp theo: **cấu hình biến môi trường**.
 
 ---
 
@@ -135,60 +251,137 @@ nano .env   # hoặc dùng editor bất kỳ
 
 ## 5. Chạy thử (dev mode)
 
+Trước khi deploy production, hãy chạy thử ở chế độ dev để kiểm tra mọi thứ hoạt động.
+
+### Khởi động dev server
+
 ```bash
+cd /var/www/compressly
 npm run dev
 ```
 
-Truy cập `http://<IP_VPS>:3000` để kiểm tra giao diện.
-Truy cập `http://<IP_VPS>:3000/admin` để vào trang quản trị.
+Lệnh này khởi động Next.js ở chế độ development, hỗ trợ hot-reload (sửa code tự cập nhật).
 
-Dừng lại bằng `Ctrl+C` khi đã kiểm tra xong.
+Khi thấy dòng:
+```
+  ▲ Next.js 15.x.x
+  - Local:   http://localhost:3000
+```
+
+là server đã chạy.
+
+### Kiểm tra trong trình duyệt
+
+Mở trình duyệt trên máy local, truy cập:
+
+- **`http://<IP_VPS>:3000`** — Giao diện nén ảnh chính (kéo-thả file vào để test)
+- **`http://<IP_VPS>:3000/admin`** — Trang quản trị (nhập `ADMIN_PASSWORD` đã đặt trong `.env`)
+
+> ⚠️ Nếu không truy cập được, kiểm tra firewall VPS:
+> ```bash
+> sudo ufw allow 3000/tcp
+> ```
+
+### Dừng dev server
+
+Quay lại terminal, nhấn **`Ctrl + C`** để dừng.
+
+> **Lưu ý:** Dev mode chỉ dùng để thử nghiệm, **không dùng cho production** vì chậm hơn và tiêu hao tài nguyên hơn.  
+> Tiếp theo: cấu hình PM2 để chạy production.
 
 ---
 
 ## 6. Chạy production với PM2
 
-PM2 giữ ứng dụng chạy nền, tự khởi động lại khi crash, và tự chạy khi VPS reboot.
+> **Tại sao cần PM2?** Nếu chạy `npm start` trực tiếp, khi bạn đóng terminal thì ứng dụng sẽ tắt.  
+> PM2 chạy ứng dụng như một **service nền**, tự khởi động lại khi crash, và tự chạy khi VPS reboot.
 
-### Cài PM2
+### Bước 1 — Cài PM2
 
 ```bash
 sudo npm install -g pm2
 ```
 
-### Khởi chạy
+Lệnh này cài PM2 toàn cục (dùng được cho mọi project).
+
+Kiểm tra:
+
+```bash
+pm2 --version
+```
+
+### Bước 2 — Start ứng dụng với PM2
 
 ```bash
 cd /var/www/compressly
-
-# Start ứng dụng
 pm2 start npm --name "compressly" -- start
-
-# Lưu cấu hình PM2 hiện tại
-pm2 save
-
-# Thiết lập tự khởi động khi VPS reboot
-pm2 startup
-# → Làm theo hướng dẫn in ra (copy-paste lệnh sudo mà PM2 gợi ý)
 ```
 
-### Quản lý
+Giải thích:
+- `pm2 start npm` — PM2 chạy lệnh `npm` làm process nền
+- `--name "compressly"` — đặt tên cho process (dễ quản lý)
+- `-- start` — truyền `start` làm tham số cho `npm` (tương đương `npm start`)
+
+Khi thành công, bạn sẽ thấy bảng trạng thái:
+
+```
+┌─────┬─────────────┬──────┬───────
+│ id  │ name        │ mode │ status
+├─────┼─────────────┼──────┼───────
+│ 0   │ compressly  │ fork │ online
+└─────┴─────────────┴──────┴───────
+```
+
+`status: online` nghĩa là ứng dụng đang chạy trên port 3000.
+
+### Bước 3 — Lưu cấu hình & tự khởi động khi reboot
+
+```bash
+pm2 save
+```
+
+Lưu danh sách process hiện tại để PM2 nhớ sau khi reboot.
+
+```bash
+pm2 startup
+```
+
+Lệnh này sẽ in ra một dòng kiểu:
+```
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u $USER --hp $HOME
+```
+
+**Copy-paste dòng đó chạy lại** là xong. Từ giờ, mỗi khi VPS reboot, PM2 tự chạy ứng dụng.
+
+### Bước 4 — Kiểm tra ứng dụng đang chạy
+
+```bash
+pm2 status
+```
+
+Hoặc mở trình duyệt: `http://<IP_VPS>:3000`
+
+### Các lệnh PM2 thường dùng
 
 | Lệnh | Mô tả |
 |------|-------|
 | `pm2 status` | Xem trạng thái tất cả process |
-| `pm2 logs compressly` | Xem log realtime |
+| `pm2 logs compressly` | Xem log realtime (Ctrl+C để thoát) |
+| `pm2 logs compressly --lines 50` | Xem 50 dòng log gần nhất |
 | `pm2 restart compressly` | Khởi động lại |
-| `pm2 stop compressly` | Dừng |
-| `pm2 delete compressly` | Xóa khỏi PM2 |
-| `pm2 monit` | Dashboard monitor |
+| `pm2 stop compressly` | Dừng process |
+| `pm2 delete compressly` | Xóa khỏi PM2 hoàn toàn |
+| `pm2 monit` | Dashboard monitor realtime (CPU, RAM, log) |
+| `pm2 reload compressly` | Reload 0-downtime (dùng khi cập nhật code) |
 
 ### Đổi port (nếu cần)
 
-Mặc định Next.js chạy port `3000`. Đổi bằng biến `PORT`:
+Mặc định Next.js chạy port `3000`. Muốn đổi sang port khác (ví dụ `8080`):
 
 ```bash
+pm2 delete compressly
 PORT=8080 pm2 start npm --name "compressly" -- start
+pm2 save
 ```
 
 ---
