@@ -1,0 +1,11 @@
+{
+    "schema_version": 2,
+    "commit": "25ae7b3ed4e37cd89ec760325926ba497df4b916",
+    "indexed_at": "2026-07-11T10:35:07Z",
+    "project": "compressly",
+    "nodes": 358,
+    "edges": 746,
+    "original_size": 1835008,
+    "compressed_size": 257204,
+    "compression_level": 9
+}

@@ -99,7 +99,6 @@ export default function Home() {
 
       {bannerUrl && (
         <section className="ad-slot">
-          <div className="ad-label">{t("ad.title")}</div>
           <a href={bannerLink || bannerUrl} target="_blank" rel="noreferrer">
             <img src={bannerUrl} alt={t("ad.title")} />
           </a>
