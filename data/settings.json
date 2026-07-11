@@ -1,10 +1,10 @@
 {
-  "bannerUrl": "/banner/banner.png",
+  "bannerUrl": "/api/media/banner/banner.webp",
   "bannerLink": null,
   "defaultTheme": "light",
   "defaultLang": "vi",
-  "logoUrl": "/logo/logo.png",
-  "faviconUrl": "/favicon/favicon.png",
+  "logoUrl": "/api/media/logo/logo.png",
+  "faviconUrl": "/api/media/favicon/favicon.png",
   "siteName": {
     "en": "BNIX COMPRESS IMAGES",
     "vi": "CÔNG CỤ NÉN ẢNH MIỄN PHÍ"

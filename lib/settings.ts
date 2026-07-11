@@ -11,6 +11,7 @@ const PUBLIC_DIR = path.join(process.cwd(), "public");
 const BANNER_DIR = path.join(PUBLIC_DIR, "banner");
 const LOGO_DIR = path.join(PUBLIC_DIR, "logo");
 const FAVICON_DIR = path.join(PUBLIC_DIR, "favicon");
+const MEDIA_URL_PREFIX = "/api/media";
 
 export interface SiteSettings {
   /** Public URL of the uploaded banner, or null when none. */
@@ -53,6 +54,15 @@ const DEFAULTS: SiteSettings = {
 
 let cache: SiteSettings | null = null;
 
+function normalizeRuntimeMediaUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const url = value.trim();
+  if (url.startsWith(`${MEDIA_URL_PREFIX}/`)) return url;
+  const match = /^\/(banner|logo|favicon)\/([^/?#]+)$/.exec(url);
+  if (match) return `${MEDIA_URL_PREFIX}/${match[1]}/${match[2]}`;
+  return url;
+}
+
 // Coerce legacy string values (from earlier versions) into localized objects.
 function migrateLocalized(value: unknown): LocalizedText {
   if (value && typeof value === "object" && ("en" in value || "vi" in value)) {
@@ -69,6 +79,9 @@ export async function readSettings(): Promise<SiteSettings> {
     const raw = await fs.readFile(STORE_FILE, "utf8");
     const parsed = JSON.parse(raw) as Partial<SiteSettings>;
     const merged: SiteSettings = { ...DEFAULTS, ...parsed };
+    merged.bannerUrl = normalizeRuntimeMediaUrl(parsed.bannerUrl ?? merged.bannerUrl);
+    merged.logoUrl = normalizeRuntimeMediaUrl(parsed.logoUrl ?? merged.logoUrl);
+    merged.faviconUrl = normalizeRuntimeMediaUrl(parsed.faviconUrl ?? merged.faviconUrl);
     merged.siteName = migrateLocalized(parsed.siteName);
     merged.seoTitle = migrateLocalized(parsed.seoTitle);
     merged.seoDescription = migrateLocalized(parsed.seoDescription);
@@ -99,10 +112,11 @@ export async function saveBanner(file: File): Promise<string> {
   }
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  await clearDir(BANNER_DIR);
   await fs.mkdir(BANNER_DIR, { recursive: true });
   const filename = `banner.${ext}`;
   await fs.writeFile(path.join(BANNER_DIR, filename), buf);
-  return `/banner/${filename}`;
+  return `${MEDIA_URL_PREFIX}/banner/${filename}`;
 }
 
 export async function removeBanner(): Promise<void> {
@@ -134,10 +148,11 @@ async function saveImage(file: File, dir: string, name: string): Promise<string>
   }
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  await clearDir(dir);
   await fs.mkdir(dir, { recursive: true });
   const filename = `${name}.${ext}`;
   await fs.writeFile(path.join(dir, filename), buf);
-  return `/${path.basename(dir)}/${filename}`;
+  return `${MEDIA_URL_PREFIX}/${path.basename(dir)}/${filename}`;
 }
 
 /** Persist an uploaded logo and return its public URL. */
