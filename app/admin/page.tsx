@@ -13,8 +13,12 @@ interface KeyRecord {
   active: boolean;
 }
 
+const ADMIN_SESSION_KEY = "compressly-admin-password";
 const fmtDate = (s: string) =>
   new Date(s).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" });
+const bustAsset = (url: string | null | undefined) =>
+  url ? `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}` : null;
+const cleanAssetUrl = (url: string | null) => url?.split("?")[0] ?? "";
 
 export default function Admin() {
   const { theme, lang, toggleTheme, setLang, t } = useUi();
@@ -72,8 +76,10 @@ export default function Admin() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setAuthed(false);
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
         throw new Error(json.message || `Error ${res.status}`);
       }
+      sessionStorage.setItem(ADMIN_SESSION_KEY, adminPassword.trim());
       setAuthed(true);
       setKeys(json.keys);
 
@@ -106,6 +112,14 @@ export default function Admin() {
     if (authed) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authed]);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    if (saved) {
+      setAdminPassword(saved);
+      setAuthed(true);
+    }
+  }, []);
 
   async function createKey() {
     setBusy(true);
@@ -203,7 +217,7 @@ export default function Admin() {
       const res = await fetch("/api/admin/banner", { method: "POST", headers: adminHeaders(), body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
-      setBannerUrl(json.bannerUrl);
+      setBannerUrl(bustAsset(json.bannerUrl));
     } catch (e: any) {
       setError(e.message || t("error.generic"));
     } finally {
@@ -276,6 +290,7 @@ export default function Admin() {
         return;
       }
       setPassMsg(t("admin.pass.ok"));
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
       setAuthed(false);
     } catch (e: any) {
       setPassMsg(e.message || t("error.generic"));
@@ -294,7 +309,7 @@ export default function Admin() {
       const res = await fetch("/api/admin/logo", { method: "POST", headers: adminHeaders(), body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
-      setLogoUrl(json.logoUrl);
+      setLogoUrl(bustAsset(json.logoUrl));
     } catch (e: any) {
       setError(e.message || t("error.generic"));
     } finally {
@@ -328,7 +343,7 @@ export default function Admin() {
       const res = await fetch("/api/admin/favicon", { method: "POST", headers: adminHeaders(), body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
-      setFaviconUrl(json.faviconUrl);
+      setFaviconUrl(bustAsset(json.faviconUrl));
     } catch (e: any) {
       setError(e.message || t("error.generic"));
     } finally {
@@ -505,7 +520,7 @@ export default function Admin() {
           {bannerUrl && (
             <div className="banner-preview">
               <img src={bannerUrl} alt="banner" />
-              <div className="banner-url">{t("admin.banner.url")}: {bannerUrl}</div>
+              <div className="banner-url">{t("admin.banner.url")}: {cleanAssetUrl(bannerUrl)}</div>
             </div>
           )}
           <div className="field">
