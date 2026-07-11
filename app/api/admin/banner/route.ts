@@ -32,6 +32,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: e.status ?? 401 });
   }
   await removeBanner();
-  const s = await patchSettings({ bannerUrl: null });
-  return NextResponse.json({ bannerUrl: s.bannerUrl });
+  const s = await patchSettings({ bannerUrl: null, bannerLink: null });
+  return NextResponse.json({ bannerUrl: s.bannerUrl, bannerLink: s.bannerLink });
 }

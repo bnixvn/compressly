@@ -5,6 +5,19 @@ import { patchSettings, readSettings } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 
 // Admin: read / update site settings (banner URL, default theme/lang).
+function normalizeBannerLink(value: unknown): string | null {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("/")) return raw;
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "http:" || url.protocol === "https:") return url.toString();
+  } catch {
+    // Report a concise validation error below.
+  }
+  throw new Error("Banner link must be an http(s) URL or a relative path.");
+}
+
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req.headers.get("authorization"));
@@ -24,6 +37,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const patch: Record<string, any> = {};
   if (body.bannerUrl !== undefined) patch.bannerUrl = body.bannerUrl;
+  if (body.bannerLink !== undefined) {
+    try {
+      patch.bannerLink = normalizeBannerLink(body.bannerLink);
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+  }
   if (body.defaultTheme) patch.defaultTheme = body.defaultTheme;
   if (body.defaultLang) patch.defaultLang = body.defaultLang;
   if (body.logoUrl !== undefined) patch.logoUrl = body.logoUrl;

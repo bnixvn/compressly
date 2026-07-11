@@ -28,6 +28,7 @@ export default function Admin() {
   const [quotaInput, setQuotaInput] = useState(1000);
 
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerLink, setBannerLink] = useState("");
   const [bannerUploading, setBannerUploading] = useState(false);
   const bannerRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +56,7 @@ export default function Admin() {
   const [passMsg, setPassMsg] = useState<string | null>(null);
   const [passBusy, setPassBusy] = useState(false);
 
-  const authHeader = authed ? `Bearer ${adminPassword}` : "";
+  const adminHeaders = () => ({ Authorization: `Bearer ${adminPassword.trim()}` });
 
   const load = useCallback(async () => {
     if (!adminPassword) {
@@ -66,7 +67,7 @@ export default function Admin() {
     setError(null);
     try {
       const res = await fetch("/api/admin/keys", {
-        headers: { Authorization: `Bearer ${adminPassword}` },
+        headers: adminHeaders(),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -77,11 +78,12 @@ export default function Admin() {
       setKeys(json.keys);
 
       const sres = await fetch("/api/admin/settings", {
-        headers: { Authorization: `Bearer ${adminPassword}` },
+        headers: adminHeaders(),
       });
       const s = await sres.json().catch(() => ({}));
       if (sres.ok) {
         setBannerUrl(s.bannerUrl ?? null);
+        setBannerLink(s.bannerLink ?? "");
         setLogoUrl(s.logoUrl ?? null);
         setFaviconUrl(s.faviconUrl ?? null);
         setSiteNameEn(s.siteName?.en || "Compressly");
@@ -112,7 +114,7 @@ export default function Admin() {
       const res = await fetch("/api/admin/keys", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${adminPassword}`,
+          ...adminHeaders(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ label: label || "untitled", quota: quotaInput }),
@@ -135,7 +137,7 @@ export default function Admin() {
     try {
       const res = await fetch(`/api/admin/keys/${k}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${adminPassword}` },
+        headers: adminHeaders(),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || `Error ${res.status}`);
@@ -154,7 +156,7 @@ export default function Admin() {
       const res = await fetch(`/api/admin/keys/${k}`, {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${adminPassword}`,
+          ...adminHeaders(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ quota: newQuota }),
@@ -176,7 +178,7 @@ export default function Admin() {
       const res = await fetch(`/api/admin/keys/${k.key}`, {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${adminPassword}`,
+          ...adminHeaders(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ active: !k.active }),
@@ -198,7 +200,7 @@ export default function Admin() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/banner", { method: "POST", headers: { Authorization: authHeader }, body: fd });
+      const res = await fetch("/api/admin/banner", { method: "POST", headers: adminHeaders(), body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
       setBannerUrl(json.bannerUrl);
@@ -214,10 +216,33 @@ export default function Admin() {
     setBannerUploading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/banner", { method: "DELETE", headers: { Authorization: authHeader } });
+      const res = await fetch("/api/admin/banner", { method: "DELETE", headers: adminHeaders() });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
       setBannerUrl(json.bannerUrl);
+      setBannerLink("");
+    } catch (e: any) {
+      setError(e.message || t("error.generic"));
+    } finally {
+      setBannerUploading(false);
+    }
+  }
+
+  async function saveBannerLink() {
+    setBannerUploading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: {
+          ...adminHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bannerLink }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || json.message || t("error.generic"));
+      setBannerLink(json.bannerLink ?? "");
     } catch (e: any) {
       setError(e.message || t("error.generic"));
     } finally {
@@ -240,7 +265,7 @@ export default function Admin() {
       const res = await fetch("/api/admin/password", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${adminPassword}`,
+          ...adminHeaders(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ current: curPass, password: newPass }),
@@ -266,7 +291,7 @@ export default function Admin() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/logo", { method: "POST", headers: { Authorization: authHeader }, body: fd });
+      const res = await fetch("/api/admin/logo", { method: "POST", headers: adminHeaders(), body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
       setLogoUrl(json.logoUrl);
@@ -282,7 +307,7 @@ export default function Admin() {
     setLogoUploading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/logo", { method: "DELETE", headers: { Authorization: authHeader } });
+      const res = await fetch("/api/admin/logo", { method: "DELETE", headers: adminHeaders() });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
       setLogoUrl(json.logoUrl);
@@ -300,7 +325,7 @@ export default function Admin() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/favicon", { method: "POST", headers: { Authorization: authHeader }, body: fd });
+      const res = await fetch("/api/admin/favicon", { method: "POST", headers: adminHeaders(), body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
       setFaviconUrl(json.faviconUrl);
@@ -316,7 +341,7 @@ export default function Admin() {
     setFaviconUploading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/favicon", { method: "DELETE", headers: { Authorization: authHeader } });
+      const res = await fetch("/api/admin/favicon", { method: "DELETE", headers: adminHeaders() });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || t("error.generic"));
       setFaviconUrl(json.faviconUrl);
@@ -334,10 +359,11 @@ export default function Admin() {
       const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: {
-          Authorization: authHeader,
+          ...adminHeaders(),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          bannerLink,
           siteName: { en: siteNameEn, vi: siteNameVi },
           seoTitle: { en: seoTitleEn, vi: seoTitleVi },
           seoDescription: { en: seoDescEn, vi: seoDescVi },
@@ -482,10 +508,21 @@ export default function Admin() {
               <div className="banner-url">{t("admin.banner.url")}: {bannerUrl}</div>
             </div>
           )}
+          <div className="field">
+            <label>{t("admin.banner.link")}</label>
+            <input
+              value={bannerLink}
+              onChange={(e) => setBannerLink(e.target.value)}
+              placeholder={t("admin.banner.linkPh")}
+            />
+          </div>
           <div className="field-row">
             <input ref={bannerRef} type="file" accept="image/*" hidden onChange={(e) => uploadBanner(e.target.files?.[0] ?? null)} />
             <button className="btn" onClick={() => bannerRef.current?.click()} disabled={bannerUploading}>
               {bannerUploading ? t("admin.banner.uploading") : t("admin.banner.upload")}
+            </button>
+            <button className="btn" onClick={saveBannerLink} disabled={bannerUploading}>
+              {t("admin.banner.saveLink")}
             </button>
             {bannerUrl && (
               <button className="btn ghost" onClick={removeBanner} disabled={bannerUploading}>

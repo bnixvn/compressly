@@ -83,6 +83,9 @@ const en: Dict = {
   "admin.banner.desc": "Shown at the bottom of the compressor page.",
   "admin.banner.upload": "Upload image",
   "admin.banner.url": "Banner URL",
+  "admin.banner.link": "Click-through link",
+  "admin.banner.linkPh": "https://example.com/landing-page",
+  "admin.banner.saveLink": "Save link",
   "admin.banner.remove": "Remove banner",
   "admin.banner.uploading": "Uploading…",
 
@@ -197,6 +200,9 @@ const vi: Dict = {
   "admin.banner.desc": "Hiển thị cuối trang nén ảnh.",
   "admin.banner.upload": "Tải ảnh lên",
   "admin.banner.url": "URL ảnh quảng cáo",
+  "admin.banner.link": "Link khi bấm ảnh",
+  "admin.banner.linkPh": "https://example.com/trang-dich",
+  "admin.banner.saveLink": "Lưu link",
   "admin.banner.remove": "Xoá ảnh",
   "admin.banner.uploading": "Đang tải lên…",
 

@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   const lang = req.nextUrl.searchParams.get("lang") === "vi" ? "vi" : "en";
   return NextResponse.json({
     bannerUrl: s.bannerUrl,
+    bannerLink: s.bannerLink,
     logoUrl: s.logoUrl,
     siteName: s.siteName[lang] || s.siteName.en,
     seoTitle: s.seoTitle[lang],

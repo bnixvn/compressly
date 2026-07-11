@@ -1,5 +1,6 @@
 {
   "bannerUrl": "/banner/banner.png",
+  "bannerLink": null,
   "defaultTheme": "light",
   "defaultLang": "vi",
   "logoUrl": "/logo/logo.png",

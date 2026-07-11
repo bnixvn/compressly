@@ -40,6 +40,7 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 export default function Home() {
   const { theme, lang, toggleTheme, setLang, t } = useUi();
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerLink, setBannerLink] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [siteName, setSiteName] = useState<string>("Compressly");
   const [footerContent, setFooterContent] = useState<string>("");
@@ -49,6 +50,7 @@ export default function Home() {
       .then((r) => r.json())
       .then((d) => {
         setBannerUrl(d.bannerUrl ?? null);
+        setBannerLink(d.bannerLink ?? null);
         setLogoUrl(d.logoUrl ?? null);
         setSiteName(d.siteName || "Compressly");
         setFooterContent(d.footerContent ?? "");
@@ -98,7 +100,7 @@ export default function Home() {
       {bannerUrl && (
         <section className="ad-slot">
           <div className="ad-label">{t("ad.title")}</div>
-          <a href={bannerUrl} target="_blank" rel="noreferrer">
+          <a href={bannerLink || bannerUrl} target="_blank" rel="noreferrer">
             <img src={bannerUrl} alt={t("ad.title")} />
           </a>
         </section>

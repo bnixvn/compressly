@@ -15,6 +15,8 @@ const FAVICON_DIR = path.join(PUBLIC_DIR, "favicon");
 export interface SiteSettings {
   /** Public URL of the uploaded banner, or null when none. */
   bannerUrl: string | null;
+  /** Destination URL opened when the advertisement banner is clicked. */
+  bannerLink: string | null;
   /** UI defaults (the web UI may override per-session in the browser). */
   defaultTheme: "light" | "dark";
   defaultLang: "en" | "vi";
@@ -38,6 +40,7 @@ export type LocalizedText = { en: string; vi: string };
 
 const DEFAULTS: SiteSettings = {
   bannerUrl: null,
+  bannerLink: null,
   defaultTheme: "light",
   defaultLang: "vi",
   logoUrl: null,
