@@ -22,7 +22,8 @@ export function downloadZip(entries: ZipEntry[], filename = "compressly.zip"): P
     }
     fzip(files, { level: 6 }, (err, out) => {
       if (err) return reject(err);
-      const blob = new Blob([out], { type: "application/zip" });
+      const zipBuffer = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
+      const blob = new Blob([zipBuffer], { type: "application/zip" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

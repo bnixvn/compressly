@@ -38,8 +38,8 @@ export type LocalizedText = { en: string; vi: string };
 
 const DEFAULTS: SiteSettings = {
   bannerUrl: null,
-  defaultTheme: "dark",
-  defaultLang: "en",
+  defaultTheme: "light",
+  defaultLang: "vi",
   logoUrl: null,
   faviconUrl: null,
   siteName: { en: "Compressly", vi: "" },
